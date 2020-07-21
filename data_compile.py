@@ -102,7 +102,7 @@ def parse_and_data_compile_mag(csi_log_file, num_groupings, bob_csv, eve_csv, ou
     output = open(output_csv, 'w')
     for x in range(56 * num_groupings):
         output.write(str(int(x / 56)) + '-' + str(x % 56) + ',')
-    output.write('victory\n')
+    output.write('Victory\n')
 
     # get the length of the entire file
     len_of_file = os.stat(csi_log_file).st_size
@@ -251,6 +251,166 @@ def parse_and_data_compile_other(csi_log_file, num_groupings, bob_csv, eve_csv, 
     print("Finished parsing")
 
 
+def parse_and_data_compile_other_append(csi_log_file, num_groupings, bob_csv, eve_csv, output_csv):
+    """
+    Open the CSI log file and both Bob and Eve csv files and parse them into a data csv file
+    :param csi_log_file: log binary file that contains CSI info
+    :param num_groupings: number of csi groups to include in output csv file
+    :param bob_csv: csv file that contains the sequence numbers that bob collected
+    :param eve_csv: csv file that contains the sequence numbers that eve collected
+    :param output_csv: output csv that data is written to
+    :return: nothing to return but check info in output csv
+    """
+
+    # try to open the file, if it fails exit the program
+    try:
+        f = open(csi_log_file, "rb")
+    except IOError:
+        print("Couldn't open file!")
+        sys.exit()
+
+    # Open output csv and populate the headers
+    output = open(output_csv, 'a')
+
+    # get the length of the entire file
+    len_of_file = os.stat(csi_log_file).st_size
+    bob, eve = process_bob_eve(bob_csv, eve_csv)
+    num_packets = 1
+    cur = 0
+
+    # Init the binary to ascii objects
+    two_byte = struct.Struct("=H")
+    meta_struct = struct.Struct('=QHHBBBBBBBBBBBH')
+
+    while cur < (len_of_file - 4):  # loop until the end of the file is reached
+
+        # read all the meta data from the current
+        buf_len = two_byte.unpack(f.read(2))[0]
+
+        # Grab the meta from the binary file
+        meta_data = meta_struct.unpack(f.read(25))
+        # cur_csi_obj.tfs_stamp = meta_data[0]
+        # cur_csi_obj.csi_len = meta_data[1]
+        # cur_csi_obj.channel = meta_data[2]
+        # cur_csi_obj.phyerr = meta_data[3]
+        # cur_csi_obj.noise = meta_data[4]
+        # cur_csi_obj.rate = meta_data[5]
+        # cur_csi_obj.chan_bw = meta_data[6]
+        # cur_csi_obj.num_tones = meta_data[7]
+        # cur_csi_obj.nr = meta_data[8]
+        # cur_csi_obj.nc = meta_data[9]
+        # cur_csi_obj.rssi = meta_data[10]
+        # cur_csi_obj.rssi_0 = meta_data[11]
+        # cur_csi_obj.rssi_1 = meta_data[12]
+        # cur_csi_obj.rssi_2 = meta_data[13]
+        # cur_csi_obj.payload_len = meta_data[14]
+
+        cur += 53
+
+        # Check to see if there is any CSI data and if so read it from the file and put it on the output csv file
+        if meta_data[1] > 0:
+            csi_buff = bytearray(f.read(meta_data[1]))
+            data = CSI_Python_Parser.record_CSI_data(
+                csi_buff, meta_data[8], meta_data[9], meta_data[7], True
+            )
+            cur += meta_data[1]
+            if len(data) == num_groupings:
+                victory_score = bobVsEve(bob, eve, num_packets)
+                add_data_csv_other(data, output, num_groupings, victory_score)
+
+            num_packets += 1
+
+        # implement payload processing if needed, else just going to skip those bytes
+        cur += meta_data[14]
+        f.read(meta_data[14])
+
+
+        if cur + 420 > len_of_file:
+            break
+    output.close()
+    print("Finished parsing")
+
+
+def parse_and_data_compile_append(csi_log_file, num_groupings, bob_csv, eve_csv, output_csv):
+    """
+    Open the CSI log file and both Bob and Eve csv files and parse them into a data csv file
+    :param csi_log_file: log binary file that contains CSI info
+    :param num_groupings: number of csi groups to include in output csv file
+    :param bob_csv: csv file that contains the sequence numbers that bob collected
+    :param eve_csv: csv file that contains the sequence numbers that eve collected
+    :param output_csv: output csv that data is written to
+    :return: nothing to return but check info in output csv
+    """
+
+    # try to open the file, if it fails exit the program
+    try:
+        f = open(csi_log_file, "rb")
+    except IOError:
+        print("Couldn't open file!")
+        sys.exit()
+
+    # Open output csv and populate the headers
+    output = open(output_csv, 'a')
+
+    # get the length of the entire file
+    len_of_file = os.stat(csi_log_file).st_size
+    bob, eve = process_bob_eve(bob_csv, eve_csv)
+    num_packets = 1
+    cur = 0
+
+    # Init the binary to ascii objects
+    two_byte = struct.Struct("=H")
+    meta_struct = struct.Struct('=QHHBBBBBBBBBBBH')
+
+    while cur < (len_of_file - 4):  # loop until the end of the file is reached
+
+        # read all the meta data from the current
+        buf_len = two_byte.unpack(f.read(2))[0]
+
+        # Grab the meta from the binary file
+        meta_data = meta_struct.unpack(f.read(25))
+        # cur_csi_obj.tfs_stamp = meta_data[0]
+        # cur_csi_obj.csi_len = meta_data[1]
+        # cur_csi_obj.channel = meta_data[2]
+        # cur_csi_obj.phyerr = meta_data[3]
+        # cur_csi_obj.noise = meta_data[4]
+        # cur_csi_obj.rate = meta_data[5]
+        # cur_csi_obj.chan_bw = meta_data[6]
+        # cur_csi_obj.num_tones = meta_data[7]
+        # cur_csi_obj.nr = meta_data[8]
+        # cur_csi_obj.nc = meta_data[9]
+        # cur_csi_obj.rssi = meta_data[10]
+        # cur_csi_obj.rssi_0 = meta_data[11]
+        # cur_csi_obj.rssi_1 = meta_data[12]
+        # cur_csi_obj.rssi_2 = meta_data[13]
+        # cur_csi_obj.payload_len = meta_data[14]
+
+        cur += 53
+
+        # Check to see if there is any CSI data and if so read it from the file and put it on the output csv file
+        if meta_data[1] > 0:
+            csi_buff = bytearray(f.read(meta_data[1]))
+            data = CSI_Python_Parser.record_CSI_data(
+                csi_buff, meta_data[8], meta_data[9], meta_data[7], True
+            )
+            cur += meta_data[1]
+            if len(data) == num_groupings:
+                victory_score = bobVsEve(bob, eve, num_packets)
+                add_data_csv(data, output, num_groupings, victory_score)
+
+            num_packets += 1
+
+        # implement payload processing if needed, else just going to skip those bytes
+        cur += meta_data[14]
+        f.read(meta_data[14])
+
+
+        if cur + 420 > len_of_file:
+            break
+    output.close()
+    print("Finished parsing")
+
+
 def process_bob_eve(bob_csv, eve_csv):
     """
     Create lists of packets received by bob and eve
@@ -284,7 +444,10 @@ def bobVsEve(bob_array, eve_array, seq_num):
         bob_value = 1
     if str(seq_num) in eve_array:
         eve_value = 1
-    return bob_value - eve_value
+    value = bob_value - eve_value
+    if value < 0:
+        value = 0
+    return value
 
 
 def add_data_csv(data, csv_file, num_groupings, victory_score):
@@ -322,11 +485,11 @@ def add_data_csv_other(data, csv_file, num_groupings, victory_score):
         max_list.append(np.amax(mag))
         min_list.append(np.amin(mag))
     for i in range(num_groupings):
-        csv_file.write(str(average_list[i]) + ",")
+        csv_file.write(str(int(average_list[i])) + ",")
     for i in range(num_groupings):
-        csv_file.write(str(variance_list[i]) + ",")
+        csv_file.write(str(int(variance_list[i])) + ",")
     for i in range(num_groupings):
-        csv_file.write(str(max_list[i]) + "," + str(min_list[i]) + "," + str(max_list[i]-min_list[i]) + ",")
+        csv_file.write(str(int(max_list[i])) + "," + str(int(min_list[i])) + "," + str(int(max_list[i]-min_list[i])) + ",")
     csv_file.write(str(victory_score) + '\n')
 
 
@@ -369,6 +532,12 @@ def main():
         print("Done")
     elif sys.argv[6] == '2':
         parse_and_data_compile_other(sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5])
+        print("Done")
+    elif sys.argv[6] == '3':
+        parse_and_data_compile_append(sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5])
+        print("Done")
+    elif sys.argv[6] == '4':
+        parse_and_data_compile_other_append(sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5])
         print("Done")
     else:
         print("Wrong type of mode was provided. Mode 1 is magnitude and Mode 2 is statistical analysis")
